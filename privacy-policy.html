@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Informativa sulla Privacy — LazyApply</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    background: #ffffff;
+  }
+  h1 { font-size: 1.6em; margin-bottom: 4px; }
+  .updated { color: #666; font-size: 0.9em; margin-bottom: 32px; }
+  h2 { font-size: 1.15em; margin-top: 2em; border-bottom: 1px solid #e5e5e5; padding-bottom: 6px; }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+  code { background: #f4f4f4; padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.95em; }
+  th, td { border: 1px solid #ddd; padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f7f7f7; }
+  .note { background: #f6f8fa; border-left: 3px solid #999; padding: 10px 14px; margin: 16px 0; font-size: 0.95em; }
+</style>
+</head>
+<body>
+
+<h1>Informativa sulla Privacy — LazyApply</h1>
+<p class="updated">Ultimo aggiornamento: 12 agosto 2026</p>
+
+<p>
+LazyApply è un'estensione per Chrome che aiuta a compilare automaticamente i form di
+candidatura al lavoro (LinkedIn Easy Apply e siti esterni come Workday, Greenhouse, Lever)
+usando un profilo che l'utente compila e salva autonomamente. Questa pagina spiega quali
+dati vengono trattati, dove vengono salvati e con chi vengono eventualmente condivisi.
+</p>
+
+<h2>1. Titolare del trattamento</h2>
+<p>
+Giorgio Magale — contatto: <a href="mailto:magale.giorgio@gmail.com">magale.giorgio@gmail.com</a>
+</p>
+
+<h2>2. Dati salvati localmente sul dispositivo</h2>
+<p>
+Per impostazione predefinita, LazyApply salva tutti i dati esclusivamente in locale, nello
+storage del browser (<code>chrome.storage.local</code>), sul dispositivo dell'utente. Questi
+dati <strong>non vengono mai inviati a nessun server</strong> a meno che l'utente non attivi
+esplicitamente una delle funzioni opzionali descritte al punto 3.
+</p>
+<table>
+  <tr><th>Categoria di dati</th><th>Dettaglio</th></tr>
+  <tr><td>Dati anagrafici del profilo</td><td>Nome, cognome, email, telefono, indirizzo, città, link LinkedIn/portfolio/GitHub</td></tr>
+  <tr><td>Dati professionali</td><td>Ruolo attuale, azienda, anni di esperienza, preavviso, retribuzione desiderata, disponibilità a trasferirsi, stato di autorizzazione al lavoro</td></tr>
+  <tr><td>Curriculum</td><td>File CV caricato dall'utente (nome file, tipo, contenuto codificato)</td></tr>
+  <tr><td>Risposte a domande</td><td>Risposte scritte a mano dall'utente su domande non standard, salvate per essere riutilizzate su domande simili in futuro</td></tr>
+  <tr><td>Domande sensibili (facoltative)</td><td>Genere, etnia, stato di veterano, disabilità — <strong>disattivate per impostazione predefinita</strong>; l'estensione salta sempre questi campi a meno che l'utente non le abiliti esplicitamente</td></tr>
+  <tr><td>Storico candidature</td><td>Azienda, ruolo, URL dell'annuncio, stato e note, tenuti da un tracker interno facoltativo</td></tr>
+  <tr><td>Impostazioni</td><td>Preferenze dell'estensione, incluse eventuali chiavi API personali se l'utente sceglie la modalità AI "con chiave propria" (vedi punto 3)</td></tr>
+</table>
+
+<h2>3. Funzioni opzionali che trasmettono dati a terzi</h2>
+<p>Queste funzioni sono <strong>disattivate per impostazione predefinita</strong> e richiedono un'azione esplicita dell'utente per essere attivate.</p>
+
+<h3>3.1 Assistente AI — modalità "chiave propria" (BYOK)</h3>
+<p>
+Se l'utente sceglie di usare l'assistente AI con una propria chiave API (Anthropic o OpenAI),
+il testo delle domande del form e un riassunto del profilo/CV vengono inviati
+<strong>direttamente dal browser dell'utente</strong> al provider AI scelto, secondo la
+rispettiva informativa privacy del provider. LazyApply non riceve, non intercetta e non
+conserva questi dati in alcun modo.
+</p>
+
+<h3>3.2 Assistente AI — modalità "Premium"</h3>
+<p>
+Se l'utente attiva l'abbonamento Premium, vengono trattati questi dati aggiuntivi:
+</p>
+<ul>
+  <li><strong>Email dell'utente</strong>: inviata al backend LazyApply (un Worker su Cloudflare)
+  per verificare presso Stripe l'esistenza di un abbonamento attivo associato a
+  quell'indirizzo, e per emettere un token di accesso temporaneo (valido 48 ore).</li>
+  <li><strong>Testo delle domande e riassunto del profilo</strong>: inoltrati dal backend al
+  provider AI (Anthropic) per generare la risposta richiesta, e restituiti all'estensione.</li>
+  <li><strong>Contatore di utilizzo</strong>: il backend salva solo un contatore giornaliero
+  anonimo associato all'email (es. <code>quota:email:2026-08-12</code>), con cancellazione
+  automatica dopo 48 ore, per applicare i limiti del piano. Nessun altro dato personale viene
+  conservato lato server.</li>
+</ul>
+
+<h3>3.3 Terze parti coinvolte</h3>
+<table>
+  <tr><th>Servizio</th><th>Ruolo</th><th>Dati coinvolti</th></tr>
+  <tr><td>Stripe</td><td>Elaborazione pagamenti e verifica abbonamento</td><td>Email, stato dell'abbonamento</td></tr>
+  <tr><td>Anthropic</td><td>Generazione testo tramite modelli AI (Claude)</td><td>Testo della domanda, riassunto profilo/annuncio</td></tr>
+  <tr><td>Cloudflare</td><td>Hosting del backend (Worker) e archiviazione del contatore di utilizzo</td><td>Email, contatore di utilizzo (temporaneo)</td></tr>
+</table>
+
+<h2>4. Nessuna pubblicità, nessun tracciamento</h2>
+<p>
+LazyApply non contiene pubblicità, non utilizza strumenti di analisi/tracciamento di terze
+parti (es. Google Analytics) e non vende né condivide dati con inserzionisti o data broker.
+</p>
+
+<h2>5. Permessi del browser richiesti</h2>
+<table>
+  <tr><th>Permesso</th><th>Motivo</th></tr>
+  <tr><td><code>storage</code></td><td>Salvare profilo, CV e impostazioni localmente sul dispositivo</td></tr>
+  <tr><td><code>scripting</code></td><td>Inserire la logica di compilazione nella pagina, solo quando l'utente lo richiede attivamente</td></tr>
+  <tr><td><code>activeTab</code></td><td>Operare esclusivamente sulla scheda attiva al momento del click dell'utente</td></tr>
+  <tr><td>Permessi host opzionali</td><td>Richiesti singolarmente, sito per sito, solo quando l'utente clicca "Compila questa pagina" su un sito esterno (es. Workday). Non viene richiesto alcun accesso ampio o permanente ai siti web di default.</td></tr>
+</table>
+
+<h2>6. Conservazione e cancellazione dei dati</h2>
+<p>
+I dati locali restano sul dispositivo dell'utente finché non vengono cancellati manualmente
+dalla pagina Opzioni dell'estensione oppure fino alla disinstallazione dell'estensione, che
+elimina automaticamente tutti i dati salvati localmente da Chrome. Il contatore di utilizzo
+lato server (punto 3.2) scade automaticamente dopo 48 ore.
+</p>
+
+<h2>7. Diritti dell'utente</h2>
+<p>
+Poiché la quasi totalità dei dati è conservata localmente e sotto il controllo diretto
+dell'utente, l'accesso, la modifica e la cancellazione dei propri dati sono sempre disponibili
+direttamente dalla pagina Opzioni dell'estensione. Per i dati trattati dal backend Premium
+(punto 3.2), è possibile richiedere informazioni o cancellazione scrivendo al contatto
+indicato al punto 1.
+</p>
+
+<h2>8. Modifiche a questa informativa</h2>
+<p>
+Eventuali modifiche a questa informativa saranno pubblicate su questa stessa pagina, con
+data di aggiornamento indicata in alto.
+</p>
+
+<div class="note">
+Per qualsiasi domanda su questa informativa o sul trattamento dei dati, scrivi a
+<a href="mailto:magale.giorgio@gmail.com">magale.giorgio@gmail.com</a>.
+</div>
+
+</body>
+</html>
