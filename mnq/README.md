@@ -102,3 +102,9 @@ Provati 19 filtri sull'ingresso (ADX, DI, RSI, EMA, MACD, trend giornaliero SMA2
 range contro ATR, orario) sopra la base con stop 0,4%. Nessuno aumenta l'utile annuo; quasi tutti lo riducono togliendo trade buoni
 insieme a quelli cattivi. L'unico che migliora il risultato per trade in entrambi i periodi e' il trend giornaliero SMA20
 (Sharpe 1,25 / 1,40 contro 1,34 / 1,05, meta' dei trade), ma SMA50 e SMA200 non lo confermano, quindi e' probabilmente un caso.
+
+## Ridurre il drawdown (`drawdown.py`)
+
+Confronto di 15 leve sulla base con stop 0,4% (utile ~4.900 USD/anno, drawdown massimo ~5.500 USD per contratto al livello attuale).
+La piu' efficace e' operare solo long: utile -14%, drawdown -59% (circa 2.200 USD). Stop piu' stretto, limite di perdita giornaliera
+a 500 USD e take profit all'1% danno riduzioni del 15-35%. Sizing a volatilita' e riduzione della size in drawdown aiutano poco.
