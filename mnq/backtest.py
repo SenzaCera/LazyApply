@@ -53,6 +53,7 @@ class Params:
     vol_target: float | None = None   # es. 0.02 = rischio giornaliero 2%; None = 1 contratto fisso
     max_lev: float = 4.0
     stop_pct: float | None = None     # stop loss intrabar, in % del prezzo d'ingresso (es. 0.5)
+    after_stop: str = "rientra"       # dopo uno stop: "rientra", "no_stessa_direzione", "fermo" (basta per oggi)
 
 
 def noise_bands(d, p: Params):
@@ -77,7 +78,7 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
     trades = []
     checks = range(p.first - 1, BARS - 1, p.step)           # barra che chiude a hh:00 / hh:30
     for i in range(p.lookback + 1, len(d["days"])):
-        pos, entry, t_in = 0, 0.0, 0
+        pos, entry, t_in, blocked = 0, 0.0, 0, set()
         size = 1.0 if p.vol_target is None else min(p.max_lev, p.vol_target / dvol[i]) if dvol[i] > 0 else 0.0
         for t in checks:
             c = d["close"][i, t]
@@ -93,7 +94,10 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
                     k = t_in + int(np.argmax(hit))
                     px = min(stop, d["open"][i, k]) if pos == 1 else max(stop, d["open"][i, k])  # gap oltre lo stop
                     trades.append((d["days"][i], t_in, k, pos, entry, px, size))
+                    blocked |= {pos} if p.after_stop == "no_stessa_direzione" else ({1, -1} if p.after_stop == "fermo" else set())
                     pos = 0
+            if want in blocked:
+                want = 0
             if want != pos:
                 px = d["open"][i, t + 1]
                 if pos:
