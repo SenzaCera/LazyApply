@@ -34,20 +34,22 @@ def fetch_day(day: dt.date, cache: Path):
     f = cache / f"{day}.bi5"
     if not f.exists():
         url = URL.format(y=day.year, m=day.month - 1, d=day.day)  # mesi 0-based
-        for attempt in range(25):
+        for attempt in range(60):
             try:
                 r = session().get(url, timeout=20)
                 if r.status_code == 404:
                     f.write_bytes(b"")
                     break
-                if r.status_code == 429:          # rate limit: aspetta e riprova
-                    time.sleep(60)
+                if r.status_code == 429:          # rate limit: nuova connessione e riprova
+                    _tl.__dict__.pop("s", None)
+                    time.sleep(15)
                     continue
                 r.raise_for_status()
                 f.write_bytes(r.content)
                 time.sleep(PAUSE)
                 break
             except Exception:
+                _tl.__dict__.pop("s", None)
                 time.sleep(0.5)
         else:
             print("FAILED", day, file=sys.stderr)
