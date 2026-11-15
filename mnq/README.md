@@ -71,3 +71,20 @@ python evaluate.py data/ndx_1m.csv.gz      # in-sample, fuori campione, costi, r
 3. Imposta commissioni e 1 tick di slippage nello Strategy Analyzer per confrontare con i risultati sopra.
 
 La dimensione e' fissa (parametro "Contratti"); il sizing a volatilita' non e' incluso.
+
+## Stop loss, frequenza dei controlli, capitale (`extras.py`)
+
+Queste prove sono state fatte dopo aver gia' visto il periodo 2023+, quindi valgono meno della verifica principale.
+
+| Variante | Sharpe 2019-22 | Sharpe 2023+ | Max drawdown 2023+ |
+|---|---|---|---|
+| Nessuno stop (base) | 0,95 | 0,93 | -2.095 pt |
+| Stop 0,25% | 1,16 | 1,03 | -1.605 pt |
+| Stop 0,4% | 1,16 | 1,05 | -1.796 pt |
+| Stop 0,6% | 1,14 | 0,94 | -1.978 pt |
+| Controlli ogni 5 min | 0,08 | 0,49 | -1.710 pt |
+| Controlli ogni 15 min | 0,73 | 0,51 | -2.441 pt |
+| Controlli ogni 60 min | 1,01 | 0,91 | -1.617 pt |
+
+Capitale per 1 MNQ con l'indice a ~28.000 (bootstrap a blocchi sul P&L giornaliero): utile medio ~4.300 USD/anno,
+giorno peggiore -2.200, drawdown in un anno -2.700 mediano, -6.600 al 95%, -8.600 al 99%; sull'intero periodo -11.300 al 95%.

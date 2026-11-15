@@ -52,10 +52,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 UseVwap     = true;
                 AllowShort  = true;
                 Quantity    = 1;
+                StopPct     = 0;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
                 AddPlot(Brushes.Goldenrod, "VWAP");
+            }
+            else if (State == State.Configure)
+            {
+                if (StopPct > 0)                      // stop loss intrabar, in % del prezzo d'ingresso
+                    SetStopLoss(CalculationMode.Percent, StopPct / 100.0);
             }
             else if (State == State.DataLoaded)
             {
@@ -182,6 +188,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(1, 100)]
         [Display(Name = "Contratti", Order = 6, GroupName = "Parametri")]
         public int Quantity { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 5.0)]
+        [Display(Name = "Stop loss % (0 = disattivato)", Order = 7, GroupName = "Parametri")]
+        public double StopPct { get; set; }
         #endregion
     }
 }

@@ -52,6 +52,7 @@ class Params:
     long_only: bool = False
     vol_target: float | None = None   # es. 0.02 = rischio giornaliero 2%; None = 1 contratto fisso
     max_lev: float = 4.0
+    stop_pct: float | None = None     # stop loss intrabar, in % del prezzo d'ingresso (es. 0.5)
 
 
 def noise_bands(d, p: Params):
@@ -84,11 +85,28 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
             if p.use_vwap:
                 up, dn = max(up, vwap[i, t]), min(dn, vwap[i, t])
             want = 1 if c > up else (-1 if c < dn and not p.long_only else 0)
+            if pos and p.stop_pct:                          # stop toccato fra l'ingresso e questo controllo?
+                stop = entry * (1 - pos * p.stop_pct / 100)
+                seg = slice(t_in, t + 1)
+                hit = d["low"][i, seg] <= stop if pos == 1 else d["high"][i, seg] >= stop
+                if hit.any():
+                    k = t_in + int(np.argmax(hit))
+                    px = min(stop, d["open"][i, k]) if pos == 1 else max(stop, d["open"][i, k])  # gap oltre lo stop
+                    trades.append((d["days"][i], t_in, k, pos, entry, px, size))
+                    pos = 0
             if want != pos:
                 px = d["open"][i, t + 1]
                 if pos:
                     trades.append((d["days"][i], t_in, t + 1, pos, entry, px, size))
                 pos, entry, t_in = want, px, t + 1
+        if pos and p.stop_pct:                              # stop nell'ultimo tratto fino alla chiusura
+            stop = entry * (1 - pos * p.stop_pct / 100)
+            hit = d["low"][i, t_in:] <= stop if pos == 1 else d["high"][i, t_in:] >= stop
+            if hit.any():
+                k = t_in + int(np.argmax(hit))
+                px = min(stop, d["open"][i, k]) if pos == 1 else max(stop, d["open"][i, k])
+                trades.append((d["days"][i], t_in, k, pos, entry, px, size))
+                pos = 0
         if pos:
             trades.append((d["days"][i], t_in, BARS - 1, pos, entry, d["close"][i, -1], size))
     tr = pd.DataFrame(trades, columns=["day", "t_in", "t_out", "side", "entry", "exit", "size"])
