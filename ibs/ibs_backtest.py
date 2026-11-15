@@ -20,14 +20,14 @@ COST = 0.0005
 SYMBOLS = ["QQQ", "SPY", "IWM", "DIA"]
 
 
-def load(sym):
+def load(sym, adjust=True):
     r = json.loads((Path(__file__).parent / "data" / f"{sym}.json").read_text())["chart"]["result"][0]
     q = r["indicators"]["quote"][0]
     df = pd.DataFrame({k: q[k] for k in ("open", "high", "low", "close")},
                       index=pd.to_datetime(r["timestamp"], unit="s").normalize())
     df["adj"] = r["indicators"]["adjclose"][0]["adjclose"]
     df = df.dropna()
-    f = df["adj"] / df["close"]                              # fattore dividendi
+    f = df["adj"] / df["close"] if adjust else 1.0         # fattore dividendi (no per i future)
     for c in ("open", "high", "low", "close"):
         df[c] *= f
     return df[df.high > df.low]
