@@ -61,3 +61,13 @@ python evaluate.py data/ndx_1m.csv.gz      # in-sample, fuori campione, costi, r
 ```
 
 `backtest.py` contiene il motore: segnale sulla chiusura della barra, esecuzione all'apertura della successiva, costi su ogni trade.
+
+## NinjaTrader 8
+
+`ninjatrader/MnqNoiseAreaMomentum.cs` e' la stessa strategia in NinjaScript (non compilata ne' provata in questo ambiente).
+
+1. Copia il file in `Documenti\NinjaTrader 8\bin\Custom\Strategies\` e compila dal NinjaScript Editor (F5).
+2. Applicala a un grafico **MNQ a 1 minuto** con almeno 30 giorni di storico caricati (servono 14 sedute complete prima del primo segnale).
+3. Imposta commissioni e 1 tick di slippage nello Strategy Analyzer per confrontare con i risultati sopra.
+
+La dimensione e' fissa (parametro "Contratti"); il sizing a volatilita' non e' incluso.
