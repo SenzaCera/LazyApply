@@ -71,7 +71,7 @@ python evaluate.py data/ndx_1m.csv.gz      # in-sample, fuori campione, costi, r
 3. Imposta commissioni e 1 tick di slippage nello Strategy Analyzer per confrontare con i risultati sopra.
 
 La dimensione e' fissa (parametro "Contratti"); il sizing a volatilita' non e' incluso.
-Parametri facoltativi: "Stop loss %" (0 = disattivato) e "Dopo lo stop non rientra nella stessa direzione" (ha effetto solo con lo stop attivo).
+Parametri facoltativi (tutti disattivati di default): "Stop loss %", "Take profit %" e le due opzioni per non rientrare nella stessa direzione dopo uno stop o un take profit.
 
 ## Stop loss, frequenza dei controlli, capitale (`extras.py`)
 
@@ -89,3 +89,9 @@ Queste prove sono state fatte dopo aver gia' visto il periodo 2023+, quindi valg
 
 Capitale per 1 MNQ con l'indice a ~28.000 (bootstrap a blocchi sul P&L giornaliero): utile medio ~4.300 USD/anno,
 giorno peggiore -2.200, drawdown in un anno -2.700 mediano, -6.600 al 95%, -8.600 al 99%; sull'intero periodo -11.300 al 95%.
+
+## Take profit (`takeprofit.py`)
+
+Provato sopra la variante stop 0,4% senza rientro nella stessa direzione. Un target stretto (0,3%) dimezza l'utile; fra 0,5% e 2%
+i risultati oscillano senza un andamento regolare (Sharpe 2023+ fra 0,8 e 1,35), segno che le differenze sono in buona parte rumore.
+Il migliore sulla carta e' 1% senza rientro (utile ~4.500 USD/anno contro ~3.800), ma e' un valore scelto a posteriori.

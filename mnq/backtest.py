@@ -54,6 +54,8 @@ class Params:
     max_lev: float = 4.0
     stop_pct: float | None = None     # stop loss intrabar, in % del prezzo d'ingresso (es. 0.5)
     after_stop: str = "rientra"       # dopo uno stop: "rientra", "no_stessa_direzione", "fermo" (basta per oggi)
+    take_pct: float | None = None     # take profit intrabar, in % del prezzo d'ingresso
+    after_take: str = "rientra"       # dopo un take profit: stesse opzioni di after_stop
 
 
 def noise_bands(d, p: Params):
@@ -67,6 +69,32 @@ def noise_bands(d, p: Params):
     return ub, lb
 
 
+def _intrabar_exit(d, i, pos, entry, t_in, t_end, p):
+    """Cerca stop loss / take profit fra t_in e t_end (incluso). Ritorna (barra, prezzo, tipo) o None.
+    Se stop e target cadono nella stessa barra si assume lo stop (ipotesi prudente)."""
+    lo, hi, op = d["low"][i, t_in:t_end + 1], d["high"][i, t_in:t_end + 1], d["open"][i, t_in:t_end + 1]
+    best = None
+    if p.stop_pct:
+        stop = entry * (1 - pos * p.stop_pct / 100)
+        hit = lo <= stop if pos == 1 else hi >= stop
+        if hit.any():
+            k = int(np.argmax(hit))
+            px = min(stop, op[k]) if pos == 1 else max(stop, op[k])      # gap oltre lo stop
+            best = (t_in + k, px, "stop")
+    if p.take_pct:
+        tgt = entry * (1 + pos * p.take_pct / 100)
+        hit = hi >= tgt if pos == 1 else lo <= tgt
+        if hit.any():
+            k = int(np.argmax(hit))
+            if best is None or t_in + k < best[0]:
+                best = (t_in + k, tgt, "take")
+    return best
+
+
+def _block(mode, pos):
+    return {pos} if mode == "no_stessa_direzione" else ({1, -1} if mode == "fermo" else set())
+
+
 def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame:
     """Momentum intraday su rottura della noise area. Ritorna una riga per trade."""
     ub, lb = noise_bands(d, p)
@@ -77,6 +105,7 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
     dvol = ret.rolling(14).std().shift(1).to_numpy()        # volatilita' giornaliera per il sizing
     trades = []
     checks = range(p.first - 1, BARS - 1, p.step)           # barra che chiude a hh:00 / hh:30
+    intrabar = p.stop_pct or p.take_pct
     for i in range(p.lookback + 1, len(d["days"])):
         pos, entry, t_in, blocked = 0, 0.0, 0, set()
         size = 1.0 if p.vol_target is None else min(p.max_lev, p.vol_target / dvol[i]) if dvol[i] > 0 else 0.0
@@ -86,15 +115,11 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
             if p.use_vwap:
                 up, dn = max(up, vwap[i, t]), min(dn, vwap[i, t])
             want = 1 if c > up else (-1 if c < dn and not p.long_only else 0)
-            if pos and p.stop_pct:                          # stop toccato fra l'ingresso e questo controllo?
-                stop = entry * (1 - pos * p.stop_pct / 100)
-                seg = slice(t_in, t + 1)
-                hit = d["low"][i, seg] <= stop if pos == 1 else d["high"][i, seg] >= stop
-                if hit.any():
-                    k = t_in + int(np.argmax(hit))
-                    px = min(stop, d["open"][i, k]) if pos == 1 else max(stop, d["open"][i, k])  # gap oltre lo stop
-                    trades.append((d["days"][i], t_in, k, pos, entry, px, size))
-                    blocked |= {pos} if p.after_stop == "no_stessa_direzione" else ({1, -1} if p.after_stop == "fermo" else set())
+            if pos and intrabar:                            # stop/target toccato fra l'ingresso e questo controllo?
+                ex = _intrabar_exit(d, i, pos, entry, t_in, t, p)
+                if ex:
+                    trades.append((d["days"][i], t_in, ex[0], pos, entry, ex[1], size))
+                    blocked |= _block(p.after_stop if ex[2] == "stop" else p.after_take, pos)
                     pos = 0
             if want in blocked:
                 want = 0
@@ -103,13 +128,10 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
                 if pos:
                     trades.append((d["days"][i], t_in, t + 1, pos, entry, px, size))
                 pos, entry, t_in = want, px, t + 1
-        if pos and p.stop_pct:                              # stop nell'ultimo tratto fino alla chiusura
-            stop = entry * (1 - pos * p.stop_pct / 100)
-            hit = d["low"][i, t_in:] <= stop if pos == 1 else d["high"][i, t_in:] >= stop
-            if hit.any():
-                k = t_in + int(np.argmax(hit))
-                px = min(stop, d["open"][i, k]) if pos == 1 else max(stop, d["open"][i, k])
-                trades.append((d["days"][i], t_in, k, pos, entry, px, size))
+        if pos and intrabar:                                # ultimo tratto fino alla chiusura
+            ex = _intrabar_exit(d, i, pos, entry, t_in, BARS - 1, p)
+            if ex:
+                trades.append((d["days"][i], t_in, ex[0], pos, entry, ex[1], size))
                 pos = 0
         if pos:
             trades.append((d["days"][i], t_in, BARS - 1, pos, entry, d["close"][i, -1], size))

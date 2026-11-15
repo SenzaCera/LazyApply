@@ -55,6 +55,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Quantity    = 1;
                 StopPct     = 0;
                 NoReentrySameDirection = false;
+                TakePct     = 0;
+                NoReentryAfterTarget   = false;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
@@ -64,6 +66,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             {
                 if (StopPct > 0)                      // stop loss intrabar, in % del prezzo d'ingresso
                     SetStopLoss(CalculationMode.Percent, StopPct / 100.0);
+                if (TakePct > 0)                      // take profit, in % del prezzo d'ingresso
+                    SetProfitTarget(CalculationMode.Percent, TakePct / 100.0);
             }
             else if (State == State.DataLoaded)
             {
@@ -145,7 +149,7 @@ namespace NinjaTrader.NinjaScript.Strategies
             double dn = UseVwap ? Math.Min(lower, vwap) : lower;
             int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
             if ((want == 1 && blockLong) || (want == -1 && blockShort))
-                want = 0;                             // direzione gia' fermata dallo stop oggi
+                want = 0;                             // direzione gia' fermata oggi
 
             if (want == 1)
             {
@@ -166,16 +170,20 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
-        // Dopo uno stop loss, niente nuovi ingressi nella stessa direzione fino a domani
+        // Dopo uno stop loss (o un take profit), niente nuovi ingressi nella stessa direzione fino a domani
         protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity,
             MarketPosition marketPosition, string orderId, DateTime time)
         {
-            if (!NoReentrySameDirection || execution.Order == null || execution.Order.Name != "Stop loss")
+            if (execution.Order == null)
+                return;
+            bool stop   = NoReentrySameDirection && execution.Order.Name == "Stop loss";
+            bool target = NoReentryAfterTarget && execution.Order.Name == "Profit target";
+            if (!stop && !target)
                 return;
             if (execution.Order.OrderAction == OrderAction.Sell)
-                blockLong = true;                     // stop di una posizione long
+                blockLong = true;                     // chiusa una posizione long
             else if (execution.Order.OrderAction == OrderAction.BuyToCover)
-                blockShort = true;                    // stop di una posizione short
+                blockShort = true;                    // chiusa una posizione short
         }
 
         #region Parametri
@@ -215,6 +223,15 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Dopo lo stop non rientra nella stessa direzione", Order = 8, GroupName = "Parametri")]
         public bool NoReentrySameDirection { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 10.0)]
+        [Display(Name = "Take profit % (0 = disattivato)", Order = 9, GroupName = "Parametri")]
+        public double TakePct { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Dopo il take profit non rientra nella stessa direzione", Order = 10, GroupName = "Parametri")]
+        public bool NoReentryAfterTarget { get; set; }
         #endregion
     }
 }
