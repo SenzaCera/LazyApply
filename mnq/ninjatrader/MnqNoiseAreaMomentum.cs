@@ -31,6 +31,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private DateTime        curDate = DateTime.MinValue;
         private int             lastM;
         private double          dayOpen, prevClose, lastClose, cumPV, cumV;
+        private double          dayStartPnl;             // utile realizzato cumulato a inizio seduta
         private bool            blockLong, blockShort;   // direzioni fermate dallo stop per oggi
 
         protected override void OnStateChange()
@@ -57,6 +58,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 NoReentrySameDirection = false;
                 TakePct     = 0;
                 NoReentryAfterTarget   = false;
+                DailyLossLimit = 0;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
@@ -104,6 +106,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 cumPV     = 0;
                 cumV      = 0;
                 lastM     = 0;
+                dayStartPnl = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit;
                 blockLong  = false;
                 blockShort = false;
             }
@@ -148,6 +151,11 @@ namespace NinjaTrader.NinjaScript.Strategies
             double up = UseVwap ? Math.Max(upper, vwap) : upper;
             double dn = UseVwap ? Math.Min(lower, vwap) : lower;
             int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
+            // Limite di perdita giornaliera: superato sul realizzato di oggi, niente nuovi ingressi fino a domani
+            double dayPnl = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit - dayStartPnl;
+            if (DailyLossLimit > 0 && dayPnl <= -DailyLossLimit && want != 0
+                && Position.MarketPosition != (want == 1 ? MarketPosition.Long : MarketPosition.Short))
+                want = 0;
             if ((want == 1 && blockLong) || (want == -1 && blockShort))
                 want = 0;                             // direzione gia' fermata oggi
 
@@ -232,6 +240,11 @@ namespace NinjaTrader.NinjaScript.Strategies
         [NinjaScriptProperty]
         [Display(Name = "Dopo il take profit non rientra nella stessa direzione", Order = 10, GroupName = "Parametri")]
         public bool NoReentryAfterTarget { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 1000000.0)]
+        [Display(Name = "Limite perdita giornaliera $ (0 = disattivato)", Order = 11, GroupName = "Parametri")]
+        public double DailyLossLimit { get; set; }
         #endregion
     }
 }

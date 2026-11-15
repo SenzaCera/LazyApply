@@ -108,3 +108,6 @@ insieme a quelli cattivi. L'unico che migliora il risultato per trade in entramb
 Confronto di 15 leve sulla base con stop 0,4% (utile ~4.900 USD/anno, drawdown massimo ~5.500 USD per contratto al livello attuale).
 La piu' efficace e' operare solo long: utile -14%, drawdown -59% (circa 2.200 USD). Stop piu' stretto, limite di perdita giornaliera
 a 500 USD e take profit all'1% danno riduzioni del 15-35%. Sizing a volatilita' e riduzione della size in drawdown aiutano poco.
+
+Solo long + limite di perdita giornaliera: con il limite a 500 USD o piu' il risultato e' identico al solo long (lo stop da ~230 USD
+a trade lo fa scattare quasi mai); a 300-400 USD peggiora (utile -17%, drawdown +20%). Con solo long il limite non serve.
