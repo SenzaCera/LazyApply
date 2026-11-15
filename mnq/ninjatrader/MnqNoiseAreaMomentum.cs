@@ -42,7 +42,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 Calculate                    = Calculate.OnBarClose;
                 EntriesPerDirection          = 1;
                 EntryHandling                = EntryHandling.AllEntries;
-                IsExitOnSessionClose         = true;
+                IsExitOnSessionCloseStrategy = true;
                 ExitOnSessionCloseSeconds    = 30;
                 BarsRequiredToTrade          = 1;
                 IsInstantiatedOnEachOptimizationIteration = true;
