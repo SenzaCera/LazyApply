@@ -31,6 +31,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private DateTime        curDate = DateTime.MinValue;
         private int             lastM;
         private double          dayOpen, prevClose, lastClose, cumPV, cumV;
+        private bool            blockLong, blockShort;   // direzioni fermate dallo stop per oggi
 
         protected override void OnStateChange()
         {
@@ -53,6 +54,7 @@ namespace NinjaTrader.NinjaScript.Strategies
                 AllowShort  = true;
                 Quantity    = 1;
                 StopPct     = 0;
+                NoReentrySameDirection = false;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
@@ -98,6 +100,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 cumPV     = 0;
                 cumV      = 0;
                 lastM     = 0;
+                blockLong  = false;
+                blockShort = false;
             }
 
             // Scostamento dall'apertura; eventuali minuti senza scambi ereditano l'ultimo valore
@@ -140,6 +144,8 @@ namespace NinjaTrader.NinjaScript.Strategies
             double up = UseVwap ? Math.Max(upper, vwap) : upper;
             double dn = UseVwap ? Math.Min(lower, vwap) : lower;
             int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
+            if ((want == 1 && blockLong) || (want == -1 && blockShort))
+                want = 0;                             // direzione gia' fermata dallo stop oggi
 
             if (want == 1)
             {
@@ -158,6 +164,18 @@ namespace NinjaTrader.NinjaScript.Strategies
                 else if (Position.MarketPosition == MarketPosition.Short)
                     ExitShort();
             }
+        }
+
+        // Dopo uno stop loss, niente nuovi ingressi nella stessa direzione fino a domani
+        protected override void OnExecutionUpdate(Execution execution, string executionId, double price, int quantity,
+            MarketPosition marketPosition, string orderId, DateTime time)
+        {
+            if (!NoReentrySameDirection || execution.Order == null || execution.Order.Name != "Stop loss")
+                return;
+            if (execution.Order.OrderAction == OrderAction.Sell)
+                blockLong = true;                     // stop di una posizione long
+            else if (execution.Order.OrderAction == OrderAction.BuyToCover)
+                blockShort = true;                    // stop di una posizione short
         }
 
         #region Parametri
@@ -193,6 +211,10 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(0.0, 5.0)]
         [Display(Name = "Stop loss % (0 = disattivato)", Order = 7, GroupName = "Parametri")]
         public double StopPct { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Dopo lo stop non rientra nella stessa direzione", Order = 8, GroupName = "Parametri")]
+        public bool NoReentrySameDirection { get; set; }
         #endregion
     }
 }

@@ -71,6 +71,7 @@ python evaluate.py data/ndx_1m.csv.gz      # in-sample, fuori campione, costi, r
 3. Imposta commissioni e 1 tick di slippage nello Strategy Analyzer per confrontare con i risultati sopra.
 
 La dimensione e' fissa (parametro "Contratti"); il sizing a volatilita' non e' incluso.
+Parametri facoltativi: "Stop loss %" (0 = disattivato) e "Dopo lo stop non rientra nella stessa direzione" (ha effetto solo con lo stop attivo).
 
 ## Stop loss, frequenza dei controlli, capitale (`extras.py`)
 
