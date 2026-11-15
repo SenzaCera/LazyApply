@@ -95,8 +95,11 @@ def _block(mode, pos):
     return {pos} if mode == "no_stessa_direzione" else ({1, -1} if mode == "fermo" else set())
 
 
-def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame:
-    """Momentum intraday su rottura della noise area. Ritorna una riga per trade."""
+def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS, allow=None) -> pd.DataFrame:
+    """Momentum intraday su rottura della noise area. Ritorna una riga per trade.
+
+    allow = (ok_long, ok_short): matrici booleane giorni x minuti; un NUOVO ingresso e' ammesso solo se
+    il filtro di conferma e' vero alla barra del controllo (le posizioni gia' aperte non ne risentono)."""
     ub, lb = noise_bands(d, p)
     tp = (d["high"] + d["low"] + d["close"]) / 3
     vol = np.maximum(d["volume"], 1e-9)
@@ -123,6 +126,8 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS) -> pd.DataFrame
                     pos = 0
             if want in blocked:
                 want = 0
+            if allow is not None and want != 0 and want != pos and not allow[0 if want == 1 else 1][i, t]:
+                want = 0                                    # conferma mancante: niente nuovo ingresso
             if want != pos:
                 px = d["open"][i, t + 1]
                 if pos:

@@ -95,3 +95,10 @@ giorno peggiore -2.200, drawdown in un anno -2.700 mediano, -6.600 al 95%, -8.60
 Provato sopra la variante stop 0,4% senza rientro nella stessa direzione. Un target stretto (0,3%) dimezza l'utile; fra 0,5% e 2%
 i risultati oscillano senza un andamento regolare (Sharpe 2023+ fra 0,8 e 1,35), segno che le differenze sono in buona parte rumore.
 Il migliore sulla carta e' 1% senza rientro (utile ~4.500 USD/anno contro ~3.800), ma e' un valore scelto a posteriori.
+
+## Filtri di conferma con indicatori (`confirm.py`)
+
+Provati 19 filtri sull'ingresso (ADX, DI, RSI, EMA, MACD, trend giornaliero SMA20/50/200, volume relativo, prima mezz'ora,
+range contro ATR, orario) sopra la base con stop 0,4%. Nessuno aumenta l'utile annuo; quasi tutti lo riducono togliendo trade buoni
+insieme a quelli cattivi. L'unico che migliora il risultato per trade in entrambi i periodi e' il trend giornaliero SMA20
+(Sharpe 1,25 / 1,40 contro 1,34 / 1,05, meta' dei trade), ma SMA50 e SMA200 non lo confermano, quindi e' probabilmente un caso.
