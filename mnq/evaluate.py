@@ -16,7 +16,7 @@ OOS_START = pd.Timestamp("2023-01-01")
 def table(tr, days, by):
     rows = {}
     for k, g in tr.groupby(by(tr["day"])):
-        dd = days[by(pd.Series(days)).to_numpy() == k]
+        dd = days[np.asarray(by(pd.Series(days))) == k]
         s = stats(g, dd)
         s["USD/contratto"] = round(s["total"] * POINT_VALUE)
         s["ret% (vol target)"] = round(100 * g["ret"].sum(), 1)
