@@ -18,6 +18,15 @@ using NinjaTrader.NinjaScript;
 //   * ogni 30 minuti dalle 10:00 alle 15:30 ET: long sopra max(banda alta, VWAP),
 //     short sotto min(banda bassa, VWAP), altrimenti flat
 //   * ordini a mercato sulla barra successiva, tutto chiuso entro le 16:00 ET
+//
+// Parametri di default = configurazione migliore del backtest 2019-2026 (CFD Nasdaq-100, 1 contratto,
+// valori al livello dell'indice di nov 2026): utile ~5.550 USD/anno, drawdown massimo ~3.300 USD.
+//   * long e short, stop loss 0,4%, rientro consentito dopo lo stop
+//   * protezione del profitto SOLO sugli short: dopo +0,5% chiude se restituisce il 50% del massimo guadagno
+//   * riduzione del rischio su entrambi i lati: dopo +0,25% lo stop sale da -0,4% a -0,2%
+//   * limite di perdita giornaliera 700 USD per contratto (rete di sicurezza: nel backtest non cambia i risultati)
+//   * nessun take profit
+// Parametri scelti guardando gli stessi dati su cui sono misurati: aspettarsi risultati futuri inferiori.
 namespace NinjaTrader.NinjaScript.Strategies
 {
     public class MnqNoiseAreaMomentum : Strategy
@@ -55,16 +64,16 @@ namespace NinjaTrader.NinjaScript.Strategies
                 UseVwap     = true;
                 AllowShort  = true;
                 Quantity    = 1;
-                StopPct     = 0;
+                StopPct     = 0.4;
                 NoReentrySameDirection = false;
                 TakePct     = 0;
                 NoReentryAfterTarget   = false;
-                DailyLossLimit = 0;
-                ProtectActivationPct = 0;
+                DailyLossLimit = 700;
+                ProtectActivationPct = 0.5;
                 ProtectGivebackPct   = 50;
                 ProtectLong          = false;
                 ProtectShort         = true;
-                ReduceRiskActivationPct = 0;
+                ReduceRiskActivationPct = 0.25;
                 ReduceRiskStopPct       = 0.2;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
@@ -164,9 +173,9 @@ namespace NinjaTrader.NinjaScript.Strategies
                 double up = UseVwap ? Math.Max(upper, vwap) : upper;
                 double dn = UseVwap ? Math.Min(lower, vwap) : lower;
                 int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
-                // Limite di perdita giornaliera: superato sul realizzato di oggi, niente nuovi ingressi fino a domani
+                // Limite di perdita giornaliera (per contratto): superato sul realizzato di oggi, niente nuovi ingressi fino a domani
                 double dayPnl = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit - dayStartPnl;
-                if (DailyLossLimit > 0 && dayPnl <= -DailyLossLimit && want != 0
+                if (DailyLossLimit > 0 && dayPnl <= -DailyLossLimit * Quantity && want != 0
                     && Position.MarketPosition != (want == 1 ? MarketPosition.Long : MarketPosition.Short))
                     want = 0;
                 if ((want == 1 && blockLong) || (want == -1 && blockShort))
@@ -307,7 +316,7 @@ namespace NinjaTrader.NinjaScript.Strategies
 
         [NinjaScriptProperty]
         [Range(0.0, 1000000.0)]
-        [Display(Name = "Limite perdita giornaliera $ (0 = disattivato)", Order = 11, GroupName = "Parametri")]
+        [Display(Name = "Limite perdita giornaliera $ per contratto (0 = disattivato)", Order = 11, GroupName = "Parametri")]
         public double DailyLossLimit { get; set; }
 
         [NinjaScriptProperty]
