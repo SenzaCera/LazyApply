@@ -64,6 +64,10 @@ class Params:
     protect_act: float = 0.5
     protect_val: float = 0.0
     after_protect: str = "rientra"
+    protect_sides: str = "entrambi"   # a quali posizioni si applica la protezione: "entrambi", "long", "short"
+    # Regole aggiuntive, ognuna (modo, attivazione %, valore, lati). Modo extra: "riduci" = stop a valore % dall'ingresso
+    # (es. 0.1 = stop a -0,1%, -0.05 = stop a +0,05%). Fra le regole attive vale lo stop piu' stretto.
+    protect_rules: tuple = ()
 
 
 def noise_bands(d, p: Params):
@@ -96,22 +100,30 @@ def _intrabar_exit(d, i, pos, entry, t_in, t_end, p):
             k = int(np.argmax(hit))
             if best is None or t_in + k < best[0]:
                 best = (t_in + k, tgt, "take")
-    if p.protect:
+    rules = list(p.protect_rules) + ([(p.protect, p.protect_act, p.protect_val, p.protect_sides)] if p.protect else [])
+    rules = [r for r in rules if r[3] == "entrambi" or r[3] == ("long" if pos == 1 else "short")]
+    if rules:
         # miglior prezzo raggiunto PRIMA di ogni barra (nella barra stessa non si sa se viene prima il massimo o il minimo)
         fav = hi if pos == 1 else lo
         acc = np.maximum.accumulate if pos == 1 else np.minimum.accumulate
         best_px = acc(np.r_[entry, fav[:-1]])
         mfe = (best_px - entry) * pos / entry * 100              # massimo guadagno in % finora
-        if p.protect == "pareggio":
-            lvl = np.full(len(best_px), entry + pos * p.protect_val)
-        elif p.protect == "trailing":
-            lvl = best_px * (1 - pos * p.protect_val / 100)
-        else:                                                    # giveback
-            lvl = entry + (best_px - entry) * (1 - p.protect_val)
-        hit = (mfe >= p.protect_act) & ((lo <= lvl) if pos == 1 else (hi >= lvl))
+        eff = np.full(len(best_px), -np.inf if pos == 1 else np.inf)
+        for mode, act, val, _ in rules:
+            if mode == "pareggio":
+                lvl = np.full(len(best_px), entry + pos * val)
+            elif mode == "riduci":
+                lvl = np.full(len(best_px), entry * (1 - pos * val / 100))
+            elif mode == "trailing":
+                lvl = best_px * (1 - pos * val / 100)
+            else:                                                # giveback
+                lvl = entry + (best_px - entry) * (1 - val)
+            on = mfe >= act
+            eff = np.where(on, np.maximum(eff, lvl), eff) if pos == 1 else np.where(on, np.minimum(eff, lvl), eff)
+        hit = (lo <= eff) if pos == 1 else (hi >= eff)
         if hit.any():
             k = int(np.argmax(hit))
-            px = min(lvl[k], op[k]) if pos == 1 else max(lvl[k], op[k])
+            px = min(eff[k], op[k]) if pos == 1 else max(eff[k], op[k])
             if best is None or t_in + k < best[0]:
                 best = (t_in + k, px, "protect")
     return best
@@ -134,7 +146,7 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS, allow=None) -> 
     dvol = ret.rolling(14).std().shift(1).to_numpy()        # volatilita' giornaliera per il sizing
     trades = []
     checks = range(p.first - 1, BARS - 1, p.step)           # barra che chiude a hh:00 / hh:30
-    intrabar = p.stop_pct or p.take_pct or p.protect
+    intrabar = p.stop_pct or p.take_pct or p.protect or p.protect_rules
     for i in range(p.lookback + 1, len(d["days"])):
         pos, entry, t_in, blocked = 0, 0.0, 0, set()
         size = 1.0 if p.vol_target is None else min(p.max_lev, p.vol_target / dvol[i]) if dvol[i] > 0 else 0.0

@@ -62,6 +62,10 @@ namespace NinjaTrader.NinjaScript.Strategies
                 DailyLossLimit = 0;
                 ProtectActivationPct = 0;
                 ProtectGivebackPct   = 50;
+                ProtectLong          = false;
+                ProtectShort         = true;
+                ReduceRiskActivationPct = 0;
+                ReduceRiskStopPct       = 0.2;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
@@ -191,19 +195,35 @@ namespace NinjaTrader.NinjaScript.Strategies
                 ManageProfitProtection();
         }
 
-        // Protezione del profitto: quando il trade ha guadagnato almeno ProtectActivationPct %, chiude se
-        // restituisce ProtectGivebackPct % del massimo guadagno raggiunto. Ordine stop valido per la barra successiva,
-        // ricalcolato a ogni barra.
+        // Gestione della posizione aperta, con due regole che si sommano (vale lo stop piu' stretto):
+        //  1) protezione del profitto: dopo +ProtectActivationPct %, chiude se restituisce ProtectGivebackPct %
+        //     del massimo guadagno (attivabile separatamente su long e short);
+        //  2) riduzione del rischio: dopo +ReduceRiskActivationPct %, lo stop sale a -ReduceRiskStopPct % dall'ingresso.
+        // L'ordine stop vale per la barra successiva e viene ricalcolato a ogni barra.
         private void ManageProfitProtection()
         {
-            if (ProtectActivationPct <= 0 || Position.MarketPosition == MarketPosition.Flat)
+            if (Position.MarketPosition == MarketPosition.Flat)
                 return;
-            double entry = Position.AveragePrice;
-            int    dir   = Position.MarketPosition == MarketPosition.Long ? 1 : -1;
-            double gain  = (bestPx - entry) * dir;
-            if (gain / entry * 100.0 < ProtectActivationPct)
-                return;                               // non ancora attiva
-            double level = Instrument.MasterInstrument.RoundToTickSize(entry + dir * gain * (1.0 - ProtectGivebackPct / 100.0));
+            double entry   = Position.AveragePrice;
+            int    dir     = Position.MarketPosition == MarketPosition.Long ? 1 : -1;
+            double gain    = (bestPx - entry) * dir;
+            double gainPct = gain / entry * 100.0;
+            double level   = double.NaN;
+
+            bool sideOn = dir == 1 ? ProtectLong : ProtectShort;
+            if (sideOn && ProtectActivationPct > 0 && gainPct >= ProtectActivationPct)
+                level = entry + dir * gain * (1.0 - ProtectGivebackPct / 100.0);
+
+            if (ReduceRiskActivationPct > 0 && gainPct >= ReduceRiskActivationPct)
+            {
+                double r = entry * (1.0 - dir * ReduceRiskStopPct / 100.0);
+                if (double.IsNaN(level) || (dir == 1 ? r > level : r < level))
+                    level = r;                        // tieni lo stop piu' stretto
+            }
+            if (double.IsNaN(level))
+                return;                               // nessuna regola attiva
+
+            level = Instrument.MasterInstrument.RoundToTickSize(level);
             if (dir == 1)
             {
                 if (Close[0] <= level)
@@ -299,6 +319,24 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(1.0, 100.0)]
         [Display(Name = "Protezione profitto: chiudi se restituisce % del massimo guadagno", Order = 13, GroupName = "Parametri")]
         public double ProtectGivebackPct { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Protezione profitto sui long", Order = 14, GroupName = "Parametri")]
+        public bool ProtectLong { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Protezione profitto sugli short", Order = 15, GroupName = "Parametri")]
+        public bool ProtectShort { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 10.0)]
+        [Display(Name = "Riduci rischio: attiva dopo +% (0 = disattivato)", Order = 16, GroupName = "Parametri")]
+        public double ReduceRiskActivationPct { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(-5.0, 5.0)]
+        [Display(Name = "Riduci rischio: nuovo stop a -% dall'ingresso", Order = 17, GroupName = "Parametri")]
+        public double ReduceRiskStopPct { get; set; }
         #endregion
     }
 }

@@ -120,3 +120,11 @@ il 12-26% dell'utile, perche' taglia le giornate di trend che pagano la strategi
 utile sia drawdown e' "chiudi se restituisce il 50% del massimo guadagno, dopo +0,5%" (utile +2%, drawdown -25%); con solo long
 tutte le regole costano utile (questa: -14%, drawdown -18%). Scelta fra 14 varianti, quindi va confermata.
 In NinjaTrader: parametri "Protezione profitto: attiva dopo +%" (0,5) e "chiudi se restituisce %" (50).
+
+### Protezione solo sugli short e gestione intermedia (`intermediate.py`)
+
+Senza protezione, i trade che arrivano a +0,25/0,35% chiudono in perdita il 60% delle volte, ma i trade oltre +1% (224 su 1.750)
+fanno da soli tutto l'utile: per questo il pareggio presto costa piu' di quanto salva (utile -20%).
+Protezione 50%/+0,5% solo sugli short: utile 5.662 USD/anno, drawdown -3.583 (contro 5.060 / -4.126 su entrambi i lati).
+Aggiungere "stop a -0,2% dopo +0,25%" e' quasi neutro (utile -2%, drawdown -8%); pareggio o restituzione del 75% dopo +0,3% peggiorano.
+In NinjaTrader: "Protezione profitto sui long/sugli short" e "Riduci rischio: attiva dopo +% / nuovo stop a -%".
