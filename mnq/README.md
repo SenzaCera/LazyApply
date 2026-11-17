@@ -111,3 +111,12 @@ a 500 USD e take profit all'1% danno riduzioni del 15-35%. Sizing a volatilita' 
 
 Solo long + limite di perdita giornaliera: con il limite a 500 USD o piu' il risultato e' identico al solo long (lo stop da ~230 USD
 a trade lo fa scattare quasi mai); a 300-400 USD peggiora (utile -17%, drawdown +20%). Con solo long il limite non serve.
+
+## Protezione del profitto (`protect.py`)
+
+Provate 14 regole per chiudere un trade in utile prima che torni in perdita (pareggio, trailing stop, "restituisce X% del massimo
+guadagno"), con stop 0,4%. Il pareggio presto (dopo +0,2/0,3%) elimina quasi tutti i trade passati da utile a perdita ma toglie
+il 12-26% dell'utile, perche' taglia le giornate di trend che pagano la strategia. Con long+short l'unica regola che migliora sia
+utile sia drawdown e' "chiudi se restituisce il 50% del massimo guadagno, dopo +0,5%" (utile +2%, drawdown -25%); con solo long
+tutte le regole costano utile (questa: -14%, drawdown -18%). Scelta fra 14 varianti, quindi va confermata.
+In NinjaTrader: parametri "Protezione profitto: attiva dopo +%" (0,5) e "chiudi se restituisce %" (50).

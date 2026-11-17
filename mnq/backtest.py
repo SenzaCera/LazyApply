@@ -56,6 +56,14 @@ class Params:
     after_stop: str = "rientra"       # dopo uno stop: "rientra", "no_stessa_direzione", "fermo" (basta per oggi)
     take_pct: float | None = None     # take profit intrabar, in % del prezzo d'ingresso
     after_take: str = "rientra"       # dopo un take profit: stesse opzioni di after_stop
+    # Protezione del profitto (attiva solo dopo che il trade ha guadagnato almeno protect_act %):
+    #   "pareggio": stop spostato all'ingresso + protect_val punti
+    #   "trailing": stop a protect_val % sotto il massimo raggiunto (sopra il minimo per gli short)
+    #   "giveback": chiude se restituisce protect_val (frazione, es. 0.5) del massimo guadagno raggiunto
+    protect: str | None = None
+    protect_act: float = 0.5
+    protect_val: float = 0.0
+    after_protect: str = "rientra"
 
 
 def noise_bands(d, p: Params):
@@ -88,6 +96,24 @@ def _intrabar_exit(d, i, pos, entry, t_in, t_end, p):
             k = int(np.argmax(hit))
             if best is None or t_in + k < best[0]:
                 best = (t_in + k, tgt, "take")
+    if p.protect:
+        # miglior prezzo raggiunto PRIMA di ogni barra (nella barra stessa non si sa se viene prima il massimo o il minimo)
+        fav = hi if pos == 1 else lo
+        acc = np.maximum.accumulate if pos == 1 else np.minimum.accumulate
+        best_px = acc(np.r_[entry, fav[:-1]])
+        mfe = (best_px - entry) * pos / entry * 100              # massimo guadagno in % finora
+        if p.protect == "pareggio":
+            lvl = np.full(len(best_px), entry + pos * p.protect_val)
+        elif p.protect == "trailing":
+            lvl = best_px * (1 - pos * p.protect_val / 100)
+        else:                                                    # giveback
+            lvl = entry + (best_px - entry) * (1 - p.protect_val)
+        hit = (mfe >= p.protect_act) & ((lo <= lvl) if pos == 1 else (hi >= lvl))
+        if hit.any():
+            k = int(np.argmax(hit))
+            px = min(lvl[k], op[k]) if pos == 1 else max(lvl[k], op[k])
+            if best is None or t_in + k < best[0]:
+                best = (t_in + k, px, "protect")
     return best
 
 
@@ -108,7 +134,7 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS, allow=None) -> 
     dvol = ret.rolling(14).std().shift(1).to_numpy()        # volatilita' giornaliera per il sizing
     trades = []
     checks = range(p.first - 1, BARS - 1, p.step)           # barra che chiude a hh:00 / hh:30
-    intrabar = p.stop_pct or p.take_pct
+    intrabar = p.stop_pct or p.take_pct or p.protect
     for i in range(p.lookback + 1, len(d["days"])):
         pos, entry, t_in, blocked = 0, 0.0, 0, set()
         size = 1.0 if p.vol_target is None else min(p.max_lev, p.vol_target / dvol[i]) if dvol[i] > 0 else 0.0
@@ -122,7 +148,7 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS, allow=None) -> 
                 ex = _intrabar_exit(d, i, pos, entry, t_in, t, p)
                 if ex:
                     trades.append((d["days"][i], t_in, ex[0], pos, entry, ex[1], size))
-                    blocked |= _block(p.after_stop if ex[2] == "stop" else p.after_take, pos)
+                    blocked |= _block({"stop": p.after_stop, "take": p.after_take}.get(ex[2], p.after_protect), pos)
                     pos = 0
             if want in blocked:
                 want = 0

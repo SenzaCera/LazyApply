@@ -33,6 +33,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private double          dayOpen, prevClose, lastClose, cumPV, cumV;
         private double          dayStartPnl;             // utile realizzato cumulato a inizio seduta
         private bool            blockLong, blockShort;   // direzioni fermate dallo stop per oggi
+        private double          bestPx;                  // miglior prezzo raggiunto dalla posizione aperta
 
         protected override void OnStateChange()
         {
@@ -59,6 +60,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                 TakePct     = 0;
                 NoReentryAfterTarget   = false;
                 DailyLossLimit = 0;
+                ProtectActivationPct = 0;
+                ProtectGivebackPct   = 50;
 
                 AddPlot(Brushes.SeaGreen, "BandaAlta");
                 AddPlot(Brushes.IndianRed, "BandaBassa");
@@ -145,36 +148,75 @@ namespace NinjaTrader.NinjaScript.Strategies
                 return;
             }
 
-            if (m < FirstDecision || (m - FirstDecision) % StepMinutes != 0)
-                return;                               // si decide solo alle :00 e :30 (10:00 - 15:30)
+            // Miglior prezzo raggiunto dalla posizione (serve alla protezione del profitto)
+            if (Position.MarketPosition == MarketPosition.Long)
+                bestPx = Math.Max(bestPx, High[0]);
+            else if (Position.MarketPosition == MarketPosition.Short)
+                bestPx = Math.Min(bestPx, Low[0]);
 
-            double up = UseVwap ? Math.Max(upper, vwap) : upper;
-            double dn = UseVwap ? Math.Min(lower, vwap) : lower;
-            int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
-            // Limite di perdita giornaliera: superato sul realizzato di oggi, niente nuovi ingressi fino a domani
-            double dayPnl = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit - dayStartPnl;
-            if (DailyLossLimit > 0 && dayPnl <= -DailyLossLimit && want != 0
-                && Position.MarketPosition != (want == 1 ? MarketPosition.Long : MarketPosition.Short))
-                want = 0;
-            if ((want == 1 && blockLong) || (want == -1 && blockShort))
-                want = 0;                             // direzione gia' fermata oggi
-
-            if (want == 1)
+            bool acted = false;
+            if (m >= FirstDecision && (m - FirstDecision) % StepMinutes == 0)   // si decide solo alle :00 e :30 (10:00 - 15:30)
             {
-                if (Position.MarketPosition != MarketPosition.Long)
-                    EnterLong(Quantity, "Long");      // se short, NinjaTrader inverte la posizione
+                double up = UseVwap ? Math.Max(upper, vwap) : upper;
+                double dn = UseVwap ? Math.Min(lower, vwap) : lower;
+                int want  = Close[0] > up ? 1 : (Close[0] < dn && AllowShort ? -1 : 0);
+                // Limite di perdita giornaliera: superato sul realizzato di oggi, niente nuovi ingressi fino a domani
+                double dayPnl = SystemPerformance.AllTrades.TradesPerformance.Currency.CumProfit - dayStartPnl;
+                if (DailyLossLimit > 0 && dayPnl <= -DailyLossLimit && want != 0
+                    && Position.MarketPosition != (want == 1 ? MarketPosition.Long : MarketPosition.Short))
+                    want = 0;
+                if ((want == 1 && blockLong) || (want == -1 && blockShort))
+                    want = 0;                             // direzione gia' fermata oggi
+
+                if (want == 1)
+                {
+                    if (Position.MarketPosition != MarketPosition.Long)
+                        { EnterLong(Quantity, "Long"); acted = true; }      // se short, NinjaTrader inverte la posizione
+                }
+                else if (want == -1)
+                {
+                    if (Position.MarketPosition != MarketPosition.Short)
+                        { EnterShort(Quantity, "Short"); acted = true; }
+                }
+                else
+                {
+                    if (Position.MarketPosition == MarketPosition.Long)
+                        { ExitLong(); acted = true; }
+                    else if (Position.MarketPosition == MarketPosition.Short)
+                        { ExitShort(); acted = true; }
+                }
             }
-            else if (want == -1)
+
+            if (!acted)
+                ManageProfitProtection();
+        }
+
+        // Protezione del profitto: quando il trade ha guadagnato almeno ProtectActivationPct %, chiude se
+        // restituisce ProtectGivebackPct % del massimo guadagno raggiunto. Ordine stop valido per la barra successiva,
+        // ricalcolato a ogni barra.
+        private void ManageProfitProtection()
+        {
+            if (ProtectActivationPct <= 0 || Position.MarketPosition == MarketPosition.Flat)
+                return;
+            double entry = Position.AveragePrice;
+            int    dir   = Position.MarketPosition == MarketPosition.Long ? 1 : -1;
+            double gain  = (bestPx - entry) * dir;
+            if (gain / entry * 100.0 < ProtectActivationPct)
+                return;                               // non ancora attiva
+            double level = Instrument.MasterInstrument.RoundToTickSize(entry + dir * gain * (1.0 - ProtectGivebackPct / 100.0));
+            if (dir == 1)
             {
-                if (Position.MarketPosition != MarketPosition.Short)
-                    EnterShort(Quantity, "Short");
+                if (Close[0] <= level)
+                    ExitLong(Position.Quantity, "Protezione", "Long");          // gia' sotto il livello: esci subito
+                else
+                    ExitLongStopMarket(0, false, Position.Quantity, level, "Protezione", "Long");
             }
             else
             {
-                if (Position.MarketPosition == MarketPosition.Long)
-                    ExitLong();
-                else if (Position.MarketPosition == MarketPosition.Short)
-                    ExitShort();
+                if (Close[0] >= level)
+                    ExitShort(Position.Quantity, "Protezione", "Short");
+                else
+                    ExitShortStopMarket(0, false, Position.Quantity, level, "Protezione", "Short");
             }
         }
 
@@ -184,6 +226,8 @@ namespace NinjaTrader.NinjaScript.Strategies
         {
             if (execution.Order == null)
                 return;
+            if ((execution.Order.Name == "Long" || execution.Order.Name == "Short") && execution.Order.OrderState == OrderState.Filled)
+                bestPx = execution.Order.AverageFillPrice;   // nuova posizione: riparte il conteggio del massimo
             bool stop   = NoReentrySameDirection && execution.Order.Name == "Stop loss";
             bool target = NoReentryAfterTarget && execution.Order.Name == "Profit target";
             if (!stop && !target)
@@ -245,6 +289,16 @@ namespace NinjaTrader.NinjaScript.Strategies
         [Range(0.0, 1000000.0)]
         [Display(Name = "Limite perdita giornaliera $ (0 = disattivato)", Order = 11, GroupName = "Parametri")]
         public double DailyLossLimit { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0.0, 10.0)]
+        [Display(Name = "Protezione profitto: attiva dopo +% (0 = disattivata)", Order = 12, GroupName = "Parametri")]
+        public double ProtectActivationPct { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1.0, 100.0)]
+        [Display(Name = "Protezione profitto: chiudi se restituisce % del massimo guadagno", Order = 13, GroupName = "Parametri")]
+        public double ProtectGivebackPct { get; set; }
         #endregion
     }
 }
