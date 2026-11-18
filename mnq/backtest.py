@@ -68,6 +68,7 @@ class Params:
     # Regole aggiuntive, ognuna (modo, attivazione %, valore, lati). Modo extra: "riduci" = stop a valore % dall'ingresso
     # (es. 0.1 = stop a -0,1%, -0.05 = stop a +0,05%). Fra le regole attive vale lo stop piu' stretto.
     protect_rules: tuple = ()
+    bar_min: int = 1                  # timeframe del grafico in minuti (VWAP e protezioni aggiornati solo a fine barra)
 
 
 def noise_bands(d, p: Params):
@@ -106,7 +107,13 @@ def _intrabar_exit(d, i, pos, entry, t_in, t_end, p):
         # miglior prezzo raggiunto PRIMA di ogni barra (nella barra stessa non si sa se viene prima il massimo o il minimo)
         fav = hi if pos == 1 else lo
         acc = np.maximum.accumulate if pos == 1 else np.minimum.accumulate
-        best_px = acc(np.r_[entry, fav[:-1]])
+        if p.bar_min == 1:
+            best_px = acc(np.r_[entry, fav[:-1]])
+        else:                                                    # aggiornato solo alla chiusura di ogni barra del grafico
+            run = acc(fav)
+            last_end = (np.arange(t_in, t_end + 1) // p.bar_min) * p.bar_min - 1 - t_in
+            best_px = np.where(last_end >= 0, run[np.maximum(last_end, 0)], entry)
+            best_px = np.maximum(best_px, entry) if pos == 1 else np.minimum(best_px, entry)
         mfe = (best_px - entry) * pos / entry * 100              # massimo guadagno in % finora
         eff = np.full(len(best_px), -np.inf if pos == 1 else np.inf)
         for mode, act, val, _ in rules:
@@ -139,9 +146,16 @@ def intraday_momentum(d, p: Params = Params(), cost=COST_POINTS, allow=None) -> 
     allow = (ok_long, ok_short): matrici booleane giorni x minuti; un NUOVO ingresso e' ammesso solo se
     il filtro di conferma e' vero alla barra del controllo (le posizioni gia' aperte non ne risentono)."""
     ub, lb = noise_bands(d, p)
-    tp = (d["high"] + d["low"] + d["close"]) / 3
-    vol = np.maximum(d["volume"], 1e-9)
-    vwap = np.cumsum(tp * vol, axis=1) / np.cumsum(vol, axis=1)
+    if p.bar_min == 1:
+        tp = (d["high"] + d["low"] + d["close"]) / 3
+        vol = np.maximum(d["volume"], 1e-9)
+        vwap = np.cumsum(tp * vol, axis=1) / np.cumsum(vol, axis=1)
+    else:                                                       # VWAP calcolato sulle barre del grafico
+        n, b = len(d["days"]), p.bar_min
+        sh = (n, BARS // b, b)
+        tp = (d["high"].reshape(sh).max(2) + d["low"].reshape(sh).min(2) + d["close"].reshape(sh)[:, :, -1]) / 3
+        vol = np.maximum(d["volume"].reshape(sh).sum(2), 1e-9)
+        vwap = np.repeat(np.cumsum(tp * vol, axis=1) / np.cumsum(vol, axis=1), b, axis=1)
     ret = pd.Series(d["close"][:, -1]).pct_change()
     dvol = ret.rolling(14).std().shift(1).to_numpy()        # volatilita' giornaliera per il sizing
     trades = []

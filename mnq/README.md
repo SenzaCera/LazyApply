@@ -128,3 +128,9 @@ fanno da soli tutto l'utile: per questo il pareggio presto costa piu' di quanto 
 Protezione 50%/+0,5% solo sugli short: utile 5.662 USD/anno, drawdown -3.583 (contro 5.060 / -4.126 su entrambi i lati).
 Aggiungere "stop a -0,2% dopo +0,25%" e' quasi neutro (utile -2%, drawdown -8%); pareggio o restituzione del 75% dopo +0,3% peggiorano.
 In NinjaTrader: "Protezione profitto sui long/sugli short" e "Riduci rischio: attiva dopo +% / nuovo stop a -%".
+
+## Timeframe del grafico (`timeframe.py`)
+
+Con i default NinjaTrader: grafico a 1 minuto 5.551 USD/anno, drawdown -3.283; a 5 minuti praticamente uguale (5.587 / -3.159);
+a 15 minuti peggiore (4.814 / -4.435), perche' protezione e riduzione del rischio vengono aggiornate solo ogni 15 minuti.
+Decidere ogni 15 minuti invece di 30 peggiora in ogni caso (utile -35/45%).
